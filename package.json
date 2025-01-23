@@ -1,0 +1,18 @@
+{
+  "name": "votingsystem",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.9",
+    "@types/ws": "^8.5.13",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

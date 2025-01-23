@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Election System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">Candidate Election System</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showResults()">Results</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="text-center mb-5">
+            <h1>BlockChain Based Voting System</h1>
+            <p class="text-muted">Please select your preferred candidate</p>
+        </div>
+
+        <div class="row g-4 justify-content-center" id="candidatesContainer">
+            <!-- Candidates will be loaded dynamically -->
+        </div>
+    </div>
+
+    <div class="modal fade" id="voteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Vote Confirmation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Enter your ID number:</p>
+                    <input type="text" id="userIdentifier" class="form-control" placeholder="ID Number">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmVote()">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="resultsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Election Results</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="resultsContainer">
+                    <!-- Results will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedCandidate = null;
+        const voteModal = new bootstrap.Modal(document.getElementById('voteModal'));
+        const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
+        let candidatesData = [];
+
+        // Fetch candidates when the page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/details');
+                const data = await response.json();
+                renderCandidates(data.candidates);
+            } catch (error) {
+                console.error('Error loading candidates:', error);
+            }
+        });
+
+        function renderCandidates(candidates) {
+            const container = document.getElementById('candidatesContainer');
+            container.innerHTML = candidates.map(candidate => `
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="${candidate.name}">
+                        <div class="card-body">
+                            <h5 class="card-title text-center">${candidate.name}</h5>
+                            <div class="d-grid mt-3">
+                                <button class="btn btn-primary" onclick="submitVote('${candidate.id}')">Vote</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function submitVote(candidateId) {
+            selectedCandidate = candidateId;
+            voteModal.show();
+        }
+
+        async function confirmVote() {
+            const userIdentifier = document.getElementById('userIdentifier').value;
+            if (!userIdentifier) {
+                alert('Please enter your ID number!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/vote', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userIdentifier,
+                        candidateId: selectedCandidate
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Your vote has been successfully recorded!');
+                    voteModal.hide();
+                } else {
+                    alert(result.error || 'An error occurred!');
+                }
+            } catch (error) {
+                alert('Voting process failed!');
+                console.error('Error:', error);
+            }
+        }
+
+        async function showResults() {
+            try {
+                const [resultsResponse, candidatesResponse] = await Promise.all([
+                    fetch('/results'),
+                    fetch('/details')
+                ]);
+
+                const results = await resultsResponse.json();
+                const {candidates} = await candidatesResponse.json();
+                
+                const resultsHtml = candidates.map(candidate => {
+                    const votes = results[candidate.id] || 0;
+                    return `
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">${candidate.name}</h5>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="progress" style="width: 70%">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: ${votes}%" 
+                                             aria-valuenow="${votes}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <span class="ms-2">${votes} votes</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('resultsContainer').innerHTML = resultsHtml;
+                resultsModal.show();
+            } catch (error) {
+                console.error('Error fetching results:', error);
+                alert('An error occurred while fetching the results!');
+            }
+        }
+    </script>
+</body>
+</html>
